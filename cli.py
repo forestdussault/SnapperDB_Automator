@@ -2,6 +2,7 @@ import click
 import logging
 import helpers
 
+
 @click.command()
 @click.option('--config_file', help='Path to SnapperDB instance configuration file')
 @click.option('--id_file', help='Path to text file containing all samples to add to SnapperDB instance')
@@ -18,7 +19,7 @@ def cli(config_file, id_file, work_dir):
     # Prepare dictionary with {sample_id:[R1,R2],} format
     sample_dictionary = helpers.get_sample_dictionary(fastq_folder_path)
 
-    # Filter dictionary to only new stuff is added to update script
+    # Filter dictionary so only new stuff is added to the shell script
     filtered_sample_dictionary = {}
     for key, value in sample_dictionary.items():
         if key in filtered_id_list:
@@ -32,7 +33,7 @@ def cli(config_file, id_file, work_dir):
                                      work_dir=work_dir,
                                      sample_dictionary=filtered_sample_dictionary)
 
-    logging.info('Script complete')
+    logging.info('Created SnapperDB shell script at {}'.format(work_dir))
 
 if __name__ == '__main__':
     cli()
