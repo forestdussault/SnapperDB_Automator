@@ -3,46 +3,6 @@ import glob
 import logging
 
 
-def link_files(id_file, work_dir):
-    """
-    :param id_list: file with list of OLC IDs to link
-    :param work_dir: destination directory to link files
-    """
-    fastq_path = os.path.join(work_dir, 'fastq_links')
-    try:
-        os.mkdir(fastq_path)
-    except OSError:
-        pass
-
-    # Do a check first with retrieve_sample_dict to avoid redundant link-making effort
-    existing_samples = get_sample_dictionary(fastq_path)
-
-    # Read file into a list
-    with open(id_file) as f1:
-        content = f1.readlines()
-    content = [x.strip() for x in content]
-
-    # Create new filtered list
-    filtered_id_list = []
-    for id in content:
-        if id not in existing_samples:
-            filtered_id_list.append(id)
-
-    # Write filtered list to text file
-    filtered_id_file = id_file.replace('.txt', '_filtered.txt')
-    with open(filtered_id_file, 'w') as f2:
-        for seqid in filtered_id_list:
-            f2.write(seqid + '\n')
-
-    # Do file linking based off of filtered file
-    logging.info('Preparing FASTQ links at {}'.format(fastq_path))
-    cmd = 'python2 /mnt/nas/MiSeq_Backup/file_linker.py {seqidlist} {output_folder}'.format(
-        seqidlist=filtered_id_file,
-        output_folder=fastq_path)
-    os.system(cmd)
-    return fastq_path, filtered_id_list
-
-
 def retrieve_fastqgz(directory):
     """
     :param directory: Path to folder containing output from MiSeq run
@@ -77,15 +37,15 @@ def get_readpair(sample_id, fastq_file_list):
     :return: the absolute filepaths of R1 and R2 for a given sample ID
     """
 
-    R1, R2 = None, None
+    r1, r2 = None, None
     for file in fastq_file_list:
         if sample_id in os.path.basename(file):
             if 'R1' in os.path.basename(file):
-                R1 = file
+                r1 = file
             elif 'R2' in os.path.basename(file):
-                R2 = file
-    if R1 is not None:
-        return [os.path.abspath(R1), os.path.abspath(R2)]
+                r2 = file
+    if r1 is not None:
+        return [os.path.abspath(r1), os.path.abspath(r2)]
     else:
         pass
 
@@ -125,7 +85,7 @@ def valid_olc_id(filename):
     :return: boolean of valid status
     """
     sample_id = os.path.basename(filename).split('_')[0]
-    id_components = sample_id.split('-')
+    id_components = sample_id.split(b'-')
     valid_status = False
     if id_components[0].isdigit() and id_components[1].isalpha() and id_components[2].isdigit():
         valid_status = True
@@ -153,7 +113,6 @@ def prepare_db_update_script(config_file, work_dir, sample_dictionary):
     :returns: path to the executable script (needs to be run within the SnapperDB venv)
     """
     script_path = os.path.join(work_dir, 'db_update_script.sh')
-    logging.info('Creating SnapperDB shell script at {}'.format(script_path))
     with open(script_path, 'w+') as file:
         for key, value in sample_dictionary.items():
             file.write('# {}'.format(key))
@@ -173,3 +132,44 @@ def prepare_db_update_script(config_file, work_dir, sample_dictionary):
     make_executable(script_path)
     return script_path
 
+
+def link_files(id_file, work_dir):
+    """
+    :param id_file: file with list of OLC IDs to link
+    :param work_dir: destination directory to link files
+    :returns fastq_path: path to fastq folder
+    :returns filtered_id_list: list of the links that were made that did not already exist in the folder
+    """
+    fastq_path = os.path.join(work_dir, 'fastq_links')
+    try:
+        os.mkdir(fastq_path)
+    except OSError:
+        pass
+
+    # Do a check first with retrieve_sample_dict to avoid redundant link-making effort
+    existing_samples = get_sample_dictionary(fastq_path)
+
+    # Read file into a list
+    with open(id_file) as f1:
+        content = f1.readlines()
+    content = [x.strip() for x in content]
+
+    # Create new filtered list
+    filtered_id_list = []
+    for sampleid in content:
+        if sampleid not in existing_samples:
+            filtered_id_list.append(sampleid)
+
+    # Write filtered list to text file
+    filtered_id_file = id_file.replace('.txt', '_filtered.txt')
+    with open(filtered_id_file, 'w') as f2:
+        for seqid in filtered_id_list:
+            f2.write(seqid + '\n')
+
+    # Do file linking based off of filtered file
+    logging.info('Preparing FASTQ links at {}'.format(fastq_path))
+    cmd = 'python2 /mnt/nas/MiSeq_Backup/file_linker.py {seqidlist} {output_folder}'.format(
+        seqidlist=filtered_id_file,
+        output_folder=fastq_path)
+    os.system(cmd)
+    return fastq_path, filtered_id_list
